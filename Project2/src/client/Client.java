@@ -38,44 +38,45 @@ public class Client {
 
 	private void createFile(String filename, String message) throws IOException {
 		// consult m-server and create a file
-		Socket client = SetUpNetworking("metadataserver", "metadataport");
-		PrintWriter out = new PrintWriter(client.getOutputStream(), true);
-		BufferedReader in =new BufferedReader(new InputStreamReader(client.getInputStream()));
-		out.println("create"+":"+filename);
+		int serverNumber = SetMetadataServer("create",filename);
 		
-		int serverNumber = readResponse(client, in);
-		System.out.println("Server response is:"+ serverNumber);
-		client.close();out.close();in.close();
 		// user serverNumber to send files to particular file
-		Socket client1 = SetUpNetworking("server"+serverNumber, "server"+serverNumber+"port");
+		SetUpNetworking(serverNumber,filename, message);
 		// Send a message about read, write or append and then the message 
 		// But how to make the server know about the particular opearation
-		PrintWriter out1 = new PrintWriter(client1.getOutputStream(), true);
-		out1.print("write:"+message);
-		client1.close();out1.close();
 	}
 
 	private void appendToFile(String filename) {
-		// consult m-server append to the end of the file		
+		// still have to consult m-server for append to the end of the file
+		//presently just using the create
+		try {
+			int serverNumber = SetMetadataServer("append", filename);
+			System.out.println(serverNumber);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private void readFromFile(String filename) {
 		//consult meta data server and read
 	}
 	
-	private Socket SetUpNetworking(String server, String serverport) throws IOException {
+	private void SetUpNetworking(int serverNumber,String filename, String message) throws IOException {
 		
 		Properties ServerPort = UsefulMethods.getUsefulMethodsInstance().getPropertiesFile("spec.properties");
 		
-		String serverName = ServerPort.getProperty(server);
-		String portString = ServerPort.getProperty(serverport);//Integer.parseInt(args[1]);
+		String serverName = ServerPort.getProperty("server"+serverNumber);
+		String portString = ServerPort.getProperty("server"+serverNumber+"port");
 		int port = Integer.parseInt(portString.trim());
 		System.out.println("Connecting to "+serverName+".... with port ......"+port);
 		
 		Socket client = null;
 		
 		try {
-			client = new Socket(serverName, port);			
+			client = new Socket(serverName, port);
+			PrintWriter out1 = new PrintWriter(client.getOutputStream(), true);
+			out1.println("write:"+filename+":"+serverNumber+":"+message);
+			client.close();out1.close();			
 		}
 		catch (IOException e) {
 			e.printStackTrace();
@@ -83,7 +84,45 @@ public class Client {
 		finally {
 			//client.close();
 		}
-		return client;
+	}
+	
+private int SetMetadataServer(String action, String filename) throws IOException {
+		
+		int serverNumber = 0;
+		Properties ServerPort = UsefulMethods.getUsefulMethodsInstance().getPropertiesFile("spec.properties");
+		
+		String serverName = ServerPort.getProperty("metadataserver");
+		String portString = ServerPort.getProperty("metadataport");//Integer.parseInt(args[1]);
+		int port = Integer.parseInt(portString.trim());
+		System.out.println("Connecting to "+serverName+".... with port ......"+port);
+		
+		Socket client = null;
+		
+		try {
+			client = new Socket(serverName, port);
+			PrintWriter out = new PrintWriter(client.getOutputStream(), true);
+			BufferedReader in =new BufferedReader(new InputStreamReader(client.getInputStream()));
+			if(action.equalsIgnoreCase("create")) {
+				out.println("create"+":"+filename);
+			}
+			else if(action.equalsIgnoreCase("append")) {
+				
+			}
+			else if(action.equalsIgnoreCase("read")) {
+				
+			}
+			
+			serverNumber = readResponse(client, in);
+			System.out.println("Server response is:"+ serverNumber);
+			client.close();out.close();in.close();
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		} 
+		finally {
+			//client.close();
+		}
+		return serverNumber;
 	}
 	
 	public int readResponse(Socket client, BufferedReader in) throws IOException {

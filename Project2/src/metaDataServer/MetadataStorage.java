@@ -11,7 +11,8 @@ public class MetadataStorage {
 	private final ReentrantLock lock = new ReentrantLock();
 	private static volatile MetadataStorage storageInstance = null;
 	private volatile ArrayList<String> metadataFilenames = new ArrayList<String>();
-	private volatile HashMap<String, String> metadataHashMap = new HashMap<>(); 
+	private volatile HashMap<String, String> metadataHashMap = new HashMap<>();
+	HashMap<String, HashMap<String, HashMap<String, Object>>> hashMap = new HashMap<>();
 	
 	private MetadataStorage() {
 		
@@ -48,9 +49,25 @@ public class MetadataStorage {
 	
 	
 	public void createHashMap(String filename, int serverNumber) {
-		String chunkName = filename+"1";
+		String[] chunk = filename.split("\\.");
+		String chunkName = chunk[0]+"-1";
 		String compose = filename+","+chunkName+","+serverNumber;
 		metadataHashMap.put(compose, usefulmethods.getTime());
 		System.out.println("Hashmap elements : "+metadataHashMap);
+		
+		//New method of storing
+		HashMap<String, HashMap<String, Object>> internalHashMap = new HashMap<>();
+		HashMap<String, Object> insideInternalHashMap = new HashMap<>();
+		int bytesize = 0;
+		insideInternalHashMap.put("serverNumber", serverNumber);
+		insideInternalHashMap.put("byteSize", bytesize);
+		insideInternalHashMap.put("lastModifiedTime", usefulmethods.getTime());
+		
+		internalHashMap.put(chunkName, insideInternalHashMap);
+		hashMap.put(chunk[0], internalHashMap);
+	}
+	
+	public void updateHashMap(String fileName, String chunkName, int byteSize, String lastModified) {
+		
 	}
 }

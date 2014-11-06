@@ -32,17 +32,39 @@ public class MetadataHandler implements Runnable {
 			while((msg = reader.readLine()) != null) {
 				String[] parts = msg.split(":");
 				String action = parts[0];
-				String filename = parts[1];
-				int serverNumber = usefulmethods.randomServer();
+				
 				if(action.equalsIgnoreCase("create")) {
+					String filename = parts[1];
+					int serverNumber = usefulmethods.randomServer();
 					if(storage.fileExists(filename)) {
 						//Send error message saying file exits
 					}
 					else {
+						String[] chunks = filename.split("\\.");
+						filename = chunks[0];
 						storage.buildArraylist(filename);
 						storage.createHashMap(filename, serverNumber);
 					}
 					sendWelcomeMessage(sock, serverNumber);
+				}
+				else if(action.equalsIgnoreCase("append")) {
+					
+				}
+				else if(action.equalsIgnoreCase("read")) {
+					
+				}
+				else if(action.equalsIgnoreCase("heartbeat")) {
+					String serverNumber = parts[1];					
+					String fileLength = parts[3];
+					String lastModified = parts[4];
+					
+					String chunckName = parts[2];
+					String[] names = chunckName.split("-");
+					String fileName = names[0];
+					
+					if(storage.fileExists(fileName)) {
+						
+					}
 				}
 			}
 		} catch (IOException e) {

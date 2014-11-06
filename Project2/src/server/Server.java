@@ -24,6 +24,9 @@ public class Server {
 	}
 
 	public void run(int serverNumber) {
+		Thread th = new Thread(new ServerHeartBeat(serverNumber));
+		th.start();
+		
 		Properties MetadataServerPort = UsefulMethods.getUsefulMethodsInstance().getPropertiesFile("spec.properties");
 		String portString = MetadataServerPort.getProperty("server"+serverNumber+"port");//Integer.parseInt(args[1]);
 		int port = Integer.parseInt(portString);
@@ -32,7 +35,6 @@ public class Server {
 			serverSock = new ServerSocket(port);
 			while(true) {
 				Socket client = serverSock.accept();
-				
 				Thread t = new Thread(new ServerHandler(client));
 				t.start();				
 			}

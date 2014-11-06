@@ -23,9 +23,9 @@ public class ServerHandler implements Runnable {
 		try {
 			while((msg = reader.readLine()) != null) {
 				String parts[] = msg.split(":");
-				System.out.println("Received on the server side : "+parts[0]);
+				System.out.println("Received "+parts[0]+" request on the server side");
 				if(parts[0].equalsIgnoreCase("write")) {
-					hfrw.createAndWriteToFile(parts[1]);
+					hfrw.createAndWriteToFile(parts[1], parts[2], parts[3]);
 				}
 			}
 		} catch (IOException e) {
