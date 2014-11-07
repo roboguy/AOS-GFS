@@ -29,7 +29,7 @@ public class ServerHeartBeat implements Runnable {
 			@SuppressWarnings("resource")
 			
 			Socket medatdataServer = new Socket(serverName, port);
-			out = new PrintWriter(medatdataServer.getOutputStream());
+			out = new PrintWriter(medatdataServer.getOutputStream(), true);
 			
 			while(true) {
 				try {
@@ -38,7 +38,9 @@ public class ServerHeartBeat implements Runnable {
 					e.printStackTrace();
 				}
 				File[] files = new File(filePath).listFiles();
-				showFiles(files);
+				if(files.length > 0) {
+					showFiles(files);
+				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -56,6 +58,7 @@ public class ServerHeartBeat implements Runnable {
 				int fileLength = (int) file.length();
 				long lastUpdated = file.lastModified();
 				out.println("heartbeat:" + serverNumber + ":" + filename + ":"+ fileLength + ":" + lastUpdated);
+				out.flush();
 			}
 		}
 	}

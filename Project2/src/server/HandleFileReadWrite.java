@@ -3,6 +3,7 @@ package server;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 
 public class HandleFileReadWrite {
 
@@ -25,4 +26,22 @@ public class HandleFileReadWrite {
 		}
 	}
 
+	public void readFromFile(String chunkName, String ServerNumber, int seekposition, int bytesToRead) {
+		try {
+			System.out.println(new String(readFromFile("/home/004/s/sm/smm130130/AOSproject2/FileSystem/server"+ServerNumber+"/"+chunkName, seekposition, bytesToRead)));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private static byte[] readFromFile(String filePath, int position, int size)
+			throws IOException {
+
+		RandomAccessFile file = new RandomAccessFile(filePath, "r");
+		file.seek(position);
+		byte[] bytes = new byte[size];
+		file.read(bytes);
+		file.close();
+		return bytes;
+	}
 }

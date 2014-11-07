@@ -51,19 +51,26 @@ public class MetadataHandler implements Runnable {
 					
 				}
 				else if(action.equalsIgnoreCase("read")) {
-					
+					System.out.println("metadataHandler read operation");
+					String fileName = parts[1].split("-")[0];
+					System.out.println("metadataHandler filename:" +fileName);
+					String chunkName = parts[1];
+					System.out.println("metadataHandler chunkName:" +chunkName);
+					int serverNumber = storage.readHashMap(fileName, chunkName);
+					sendWelcomeMessage(sock, serverNumber);
 				}
 				else if(action.equalsIgnoreCase("heartbeat")) {
 					String serverNumber = parts[1];					
 					String fileLength = parts[3];
+					int byteSize = Integer.parseInt(fileLength);
 					String lastModified = parts[4];
 					
-					String chunckName = parts[2];
-					String[] names = chunckName.split("-");
+					String chunkName = parts[2];
+					String[] names = chunkName.split("-");
 					String fileName = names[0];
 					
 					if(storage.fileExists(fileName)) {
-						
+						storage.updateHashMap(Integer.parseInt(serverNumber), fileName, chunkName, byteSize, lastModified);
 					}
 				}
 			}
@@ -81,5 +88,14 @@ public class MetadataHandler implements Runnable {
             //writer.close();
         }
     }
-
+	
+	public void closeEverything() {
+		try{
+			sock.close();
+			writer.close();
+			reader.close();
+		} catch(Exception w) {
+			w.printStackTrace();
+		}
+	}
 }

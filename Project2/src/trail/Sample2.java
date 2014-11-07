@@ -5,6 +5,7 @@ import java.io.File;
 public class Sample2 {
 	public static void main(String... args) {
 	    File[] files = new File("D:/UTD/Personal/Algorithms/Project2/src/server").listFiles();
+	    System.out.println(files.length);
 	    showFiles(files);
 	}
 

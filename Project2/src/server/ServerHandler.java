@@ -27,6 +27,9 @@ public class ServerHandler implements Runnable {
 				if(parts[0].equalsIgnoreCase("write")) {
 					hfrw.createAndWriteToFile(parts[1], parts[2], parts[3]);
 				}
+				else if(parts[0].equalsIgnoreCase("read")) {
+					hfrw.readFromFile(parts[1], parts[2], Integer.parseInt(parts[3]), Integer.parseInt(parts[4]));
+				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();

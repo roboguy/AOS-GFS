@@ -24,7 +24,6 @@ public class MetaDataServer {
 			serverSock = new ServerSocket(port);
 			while(true) {
 				Socket client = serverSock.accept();
-				
 				Thread t = new Thread(new MetadataHandler(client));
 				t.start();				
 			}
