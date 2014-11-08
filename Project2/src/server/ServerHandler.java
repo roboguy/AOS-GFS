@@ -30,6 +30,9 @@ public class ServerHandler implements Runnable {
 				else if(parts[0].equalsIgnoreCase("read")) {
 					hfrw.readFromFile(parts[1], parts[2], Integer.parseInt(parts[3]), Integer.parseInt(parts[4]));
 				}
+				else if(parts[0].equalsIgnoreCase("append")) {
+					hfrw.appendToChunk(parts[1], Integer.parseInt(parts[2]), parts[3]);
+				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();

@@ -28,7 +28,7 @@ public class Client {
 				}
 				else if(parts[0].toUpperCase().equals(("a").toUpperCase())) {
 					String filename = parts[1];
-					client.appendToFile(filename);
+					client.appendToFile(filename, parts[2]);
 				}
 			}
 		} finally {
@@ -39,13 +39,23 @@ public class Client {
 	private void createFile(String filename, String message) throws IOException {
 		// consult m-server and create a file
 		System.out.println("create request filename: "+filename);
-		int serverNumber = SetMetadataServer("create",filename);
+		int serverNumber = Integer.parseInt(SetMetadataServer("create",filename));
 		SetUpNetworking(serverNumber,filename, message);
 	}
 
-	private void appendToFile(String filename) {
-		// still have to consult m-server for append to the end of the file
-		//presently just using the create
+	private void appendToFile(String filename, String message) {
+		System.out.println("read request filename : "+filename);
+		String lastChunkInfo = null;
+		filename = filename.split("\\.")[0];
+		try {
+			lastChunkInfo = SetMetadataServer("append", filename);
+			String[] lastInfos = lastChunkInfo.split(":");
+			String chunkName = lastInfos[0];
+			int ServerNumber = Integer.parseInt(lastInfos[1]);
+			SetUpAppendNetworking(chunkName, ServerNumber, message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private void readFromFile(String filename, String offset, int bytesToRead) throws IOException {
@@ -55,7 +65,15 @@ public class Client {
 		int chunkNumber = (Integer.parseInt(offset)/8192)+1;
 		String chunkName = chunks[0]+"-"+chunkNumber;
 		int seekPosition = Integer.parseInt(offset) % 8192;
-		int serverNumber = SetMetadataServer("read", chunkName);
+		int serverNumber = Integer.parseInt(SetMetadataServer("read", chunkName));
+		if(serverNumber == 0) {
+			try {
+				Thread.sleep(2000);
+			} catch(Exception e) {
+				e.printStackTrace();
+			}
+			serverNumber = Integer.parseInt(SetMetadataServer("read", chunkName));
+		}
 		
 		// IF the read extends in more than one file
 		if((seekPosition+(bytesToRead)) > 8192) {
@@ -63,11 +81,38 @@ public class Client {
 			bytesToRead = 8192 - seekPosition;
 			int otherChunkNumber = chunkNumber+1;
 			String otherChunkName = chunks[0]+otherChunkNumber;
-			int otherServerNumber = SetMetadataServer("read", otherChunkName);
+			int otherServerNumber = Integer.parseInt(SetMetadataServer("read", otherChunkName));
 			System.out.println("Main Chunk : "+serverNumber +" Other chunks : "+otherServerNumber);
 			SetUpReadNetworking(otherServerNumber, otherChunkName, 0, otherBytesToRead);
 		}
+		try {
+			Thread.sleep(2000);
+		} catch(Exception e) {
+			e.printStackTrace();
+		}
 		SetUpReadNetworking(serverNumber, chunkName, seekPosition, bytesToRead);
+	}
+
+
+	private void SetUpAppendNetworking(String chunkName, int serverNumber, String message) {
+		Properties ServerPort = UsefulMethods.getUsefulMethodsInstance().getPropertiesFile("spec.properties");
+		
+		String serverName = ServerPort.getProperty("server"+serverNumber);
+		String portString = ServerPort.getProperty("server"+serverNumber+"port");
+		int port = Integer.parseInt(portString.trim());
+		/*System.out.println("Connecting to "+serverName+".... with port ......"+port);*/
+		
+		Socket client = null;
+		
+		try {
+			client = new Socket(serverName, port);
+			PrintWriter out1 = new PrintWriter(client.getOutputStream(), true);
+			out1.println("append:"+chunkName+":"+serverNumber+":"+message);
+			client.close();out1.close();			
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	private void SetUpReadNetworking(int serverNumber, String filename, int seekPosition, int bytesToRead) {
@@ -76,7 +121,7 @@ public class Client {
 		String serverName = ServerPort.getProperty("server"+serverNumber);
 		String portString = ServerPort.getProperty("server"+serverNumber+"port");
 		int port = Integer.parseInt(portString.trim());
-		System.out.println("Connecting to "+serverName+".... with port ......"+port);
+		/*System.out.println("Connecting to "+serverName+".... with port ......"+port);*/
 		
 		Socket client = null;
 		
@@ -98,7 +143,7 @@ public class Client {
 		String serverName = ServerPort.getProperty("server"+serverNumber);
 		String portString = ServerPort.getProperty("server"+serverNumber+"port");
 		int port = Integer.parseInt(portString.trim());
-		System.out.println("Connecting to "+serverName+".... with port ......"+port);
+		/*System.out.println("Connecting to "+serverName+".... with port ......"+port);*/
 		
 		Socket client = null;
 		
@@ -113,15 +158,15 @@ public class Client {
 		}
 	}
 	
-	private int SetMetadataServer(String action, String filename) throws IOException {
+	private String SetMetadataServer(String action, String filename) throws IOException {
 		
-		int serverNumber = 0;
+		String serverNumber = null;
 		Properties ServerPort = UsefulMethods.getUsefulMethodsInstance().getPropertiesFile("spec.properties");
 		
 		String serverName = ServerPort.getProperty("metadataserver");
 		String portString = ServerPort.getProperty("metadataport");//Integer.parseInt(args[1]);
 		int port = Integer.parseInt(portString.trim());
-		System.out.println("Connecting to "+serverName+".... with port ......"+port);
+		//System.out.println("Connecting to "+serverName+".... with port ......"+port);
 		
 		Socket client = null;
 		
@@ -131,15 +176,19 @@ public class Client {
 			BufferedReader in =new BufferedReader(new InputStreamReader(client.getInputStream()));
 			if(action.equalsIgnoreCase("create")) {
 				out.println("create"+":"+filename);
+				serverNumber = readResponse(client, in);
+				return serverNumber;
 			}
 			else if(action.equalsIgnoreCase("append")) {
-				
+				out.println(action+":"+filename);
+				serverNumber = readAppendResponse(client, in);
+				return serverNumber;
 			}
 			else if(action.equalsIgnoreCase("read")) {
 				out.println(action+":"+filename);
+				serverNumber = readResponse(client, in);
+				return serverNumber;
 			}
-			
-			serverNumber = readResponse(client, in);
 			client.close();out.close();in.close();
 		}
 		catch (IOException e) {
@@ -148,19 +197,30 @@ public class Client {
 		finally {
 			//client.close();
 		}
-		return serverNumber;
+		return null;
 	}
 	
-	public int readResponse(Socket client, BufferedReader in) throws IOException {
+	private String readAppendResponse(Socket client, BufferedReader in) throws IOException {
+		String userInput;
+
+		while ((userInput = in.readLine()) != null) {
+			System.out.println("Response from Append server:"+userInput+ " Time of Response : "+UsefulMethods.getUsefulMethodsInstance().getTime());
+			return userInput;
+		}
+		return null;
+	}
+
+	public String readResponse(Socket client, BufferedReader in) throws IOException {
 		String userInput;
 		/*BufferedReader stdIn = new BufferedReader(new InputStreamReader(
 				client.getInputStream()));*/
 
 		while ((userInput = in.readLine()) != null) {
-			System.out.println("Response from server:"+userInput);
+			System.out.println("Response from server:"+userInput+ " Time of Response : "+UsefulMethods.getUsefulMethodsInstance().getTime());
 			String parts[] = userInput.split(":");
-			return Integer.parseInt(parts[1]);
+			//return Integer.parseInt(parts[1]);
+			return parts[1];
 		}
-		return 0;
+		return null;
 	}
 }

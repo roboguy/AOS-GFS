@@ -48,7 +48,14 @@ public class MetadataHandler implements Runnable {
 					sendWelcomeMessage(sock, serverNumber);
 				}
 				else if(action.equalsIgnoreCase("append")) {
-					
+					String lastChunkInfo = storage.getLastChunkInfo(parts[1]);
+					try {
+						writer = new PrintWriter(sock.getOutputStream(), true);
+			            writer.println(lastChunkInfo);
+			            writer.flush();
+					} catch(Exception e) {
+						e.printStackTrace();
+					}
 				}
 				else if(action.equalsIgnoreCase("read")) {
 					System.out.println("metadataHandler read operation");

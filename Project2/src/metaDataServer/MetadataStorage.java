@@ -71,7 +71,7 @@ public class MetadataStorage {
 			lock.unlock();
 		}
 	}
-	
+	// I have not implemented add here
 	public void updateHashMap(int serverNumber, String fileName, String chunkName, int byteSize, String lastModified) {
 		Iterator<Entry<String, HashMap<String, ArrayList<Object>>>> it = hashMap.entrySet().iterator();
 	    while (it.hasNext()) {
@@ -97,12 +97,21 @@ public class MetadataStorage {
 								lock.unlock();
 							}
 			        	}
+		        	} 
+		        	else {
+		        		ArrayList<Object> newArraylsit = new ArrayList<Object>();
+		        		newArraylsit.add(serverNumber);
+		        		newArraylsit.add(byteSize);
+		        		newArraylsit.add(lastModified);
+		        		internalHashMap.put(chunkName, newArraylsit);
+		        		hashMap.put(fileName, internalHashMap);
+		        		break;
 		        	}
 		        }
 	        }
 	    }
-	   /* System.out.println("HeartBeat Update Server:"+serverNumber+ " file:"+fileName+ ""
-				+ " chunkName:"+chunkName+ " byteSize:"+byteSize+ " lastModified:"+ lastModified);*/
+	    System.out.println("HeartBeat Update Server:"+serverNumber+ " file:"+fileName+ ""
+				+ " chunkName:"+chunkName+ " byteSize:"+byteSize+ " lastModified:"+ usefulmethods.getTime());
 	}
 	
 	public int readHashMap(String fileName, String chunkName) {
@@ -133,5 +142,44 @@ public class MetadataStorage {
 	        }
 	    }
 		return returnServerNumber;
+	}
+
+	public String getLastChunkInfo(String fileName) {
+		int NoOfChunks = 0; 
+		String chunkName = null;
+		StringBuilder sb = new StringBuilder();
+		
+		Iterator<Entry<String, HashMap<String, ArrayList<Object>>>> it = hashMap.entrySet().iterator();
+	    while (it.hasNext()) {
+	        Map.Entry<String, HashMap<String, ArrayList<Object>>> pairs = (Entry<String, HashMap<String, ArrayList<Object>>>)it.next();
+	        HashMap<String, ArrayList<Object>> internalHashMap = new HashMap<String, ArrayList<Object>>();
+	        
+	        if(fileName.equalsIgnoreCase((pairs.getKey()).toString())) {
+	        	internalHashMap = (HashMap<String, ArrayList<Object>>) pairs.getValue();
+	        	
+	        	NoOfChunks = internalHashMap.size();
+	        	chunkName = fileName+"-"+NoOfChunks;
+	        	
+	        	Iterator<Entry<String, ArrayList<Object>>> internal = internalHashMap.entrySet().iterator();
+	        	while(internal.hasNext()) {
+		        	Map.Entry<String, ArrayList<Object>> chunk = (Map.Entry<String, ArrayList<Object>>)internal.next();
+		        	
+		        	if(chunkName.equalsIgnoreCase((chunk.getKey()).toString())) {
+		        	
+			        	ArrayList<Object> internalArrayList = new ArrayList<Object>();
+			        	internalArrayList = (ArrayList<Object>) chunk.getValue();
+						lock.lock();
+						try {
+							 sb.append(chunkName);
+							 sb.append(":");
+							 sb.append(internalArrayList.get(0));
+						} finally {
+							lock.unlock();
+						}
+		        	}
+		        }
+	        }
+	    }
+	    return sb.toString();
 	}
 }
