@@ -39,7 +39,8 @@ public class Client {
 	private void createFile(String filename, String message) throws IOException {
 		// consult m-server and create a file
 		System.out.println("create request filename: "+filename);
-		int serverNumber = Integer.parseInt(SetMetadataServer("create",filename));
+		String returnedString = (SetMetadataServer("create",filename));
+		int serverNumber = Integer.parseInt(returnedString.split(":")[1]);
 		SetUpNetworking(serverNumber,filename, message);
 	}
 
@@ -60,20 +61,34 @@ public class Client {
 
 	private void readFromFile(String filename, String offset, int bytesToRead) throws IOException {
 		//consult meta data server and read
+		int serverNumber = 0;
 		System.out.println("read request filename : "+filename+" offset : "+offset+ " bytesToRead : "+ bytesToRead);
 		String[] chunks = filename.split("\\.");
 		int chunkNumber = (Integer.parseInt(offset)/8192)+1;
 		String chunkName = chunks[0]+"-"+chunkNumber;
 		int seekPosition = Integer.parseInt(offset) % 8192;
-		int serverNumber = Integer.parseInt(SetMetadataServer("read", chunkName));
+		String returnedString = (SetMetadataServer("read", chunkName));
+		String[] parts = returnedString.split(":");
+		if(parts.length > 2) {
+			System.out.println("Server Unavailable");
+		} 
+		else {
+			serverNumber = Integer.parseInt(parts[1]);
+		}/*
 		if(serverNumber == 0) {
 			try {
 				Thread.sleep(2000);
 			} catch(Exception e) {
 				e.printStackTrace();
 			}
-			serverNumber = Integer.parseInt(SetMetadataServer("read", chunkName));
-		}
+			returnedString = (SetMetadataServer("read", chunkName));
+			if(returnedString.equalsIgnoreCase("ServerUnavailable")) {
+				System.out.println("Server Unavailable");
+			} 
+			else {
+				serverNumber = Integer.parseInt(returnedString);
+			}
+		}*/
 		
 		// IF the read extends in more than one file
 		if((seekPosition+(bytesToRead)) > 8192) {
@@ -81,7 +96,15 @@ public class Client {
 			bytesToRead = 8192 - seekPosition;
 			int otherChunkNumber = chunkNumber+1;
 			String otherChunkName = chunks[0]+otherChunkNumber;
-			int otherServerNumber = Integer.parseInt(SetMetadataServer("read", otherChunkName));
+			int otherServerNumber = 0;
+			String otherReturnedString = (SetMetadataServer("read", chunkName));
+			String[] otherParts = otherReturnedString.split(":");
+			if(otherParts.length > 2) {
+				System.out.println("Server Unavailable");
+			} 
+			else {
+				otherServerNumber = Integer.parseInt(otherParts[1]);
+			}
 			System.out.println("Main Chunk : "+serverNumber +" Other chunks : "+otherServerNumber);
 			SetUpReadNetworking(otherServerNumber, otherChunkName, 0, otherBytesToRead);
 		}
@@ -154,6 +177,7 @@ public class Client {
 			client.close();out1.close();			
 		}
 		catch (IOException e) {
+			System.out.println("Server Unaviable yet");
 			e.printStackTrace();
 		}
 	}
@@ -217,9 +241,8 @@ public class Client {
 
 		while ((userInput = in.readLine()) != null) {
 			System.out.println("Response from server:"+userInput+ " Time of Response : "+UsefulMethods.getUsefulMethodsInstance().getTime());
-			String parts[] = userInput.split(":");
 			//return Integer.parseInt(parts[1]);
-			return parts[1];
+			return userInput;
 		}
 		return null;
 	}
