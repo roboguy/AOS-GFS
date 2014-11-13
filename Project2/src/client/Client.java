@@ -11,6 +11,7 @@ import java.util.Properties;
 import utilities.UsefulMethods;
 
 public class Client {
+	static int retry = 0;
 	
 	public static void main(String[] args) throws IOException {
 		BufferedReader reader = new BufferedReader(new FileReader("resource/instruction.txt"));
@@ -61,7 +62,6 @@ public class Client {
 
 	private void readFromFile(String filename, String offset, int bytesToRead) throws IOException {
 		//consult meta data server and read
-		int serverNumber = 0;
 		System.out.println("read request filename : "+filename+" offset : "+offset+ " bytesToRead : "+ bytesToRead);
 		String[] chunks = filename.split("\\.");
 		int chunkNumber = (Integer.parseInt(offset)/8192)+1;
@@ -69,26 +69,22 @@ public class Client {
 		int seekPosition = Integer.parseInt(offset) % 8192;
 		String returnedString = (SetMetadataServer("read", chunkName));
 		String[] parts = returnedString.split(":");
-		if(parts.length > 2) {
-			System.out.println("Server Unavailable");
-		} 
-		else {
-			serverNumber = Integer.parseInt(parts[1]);
-		}/*
-		if(serverNumber == 0) {
+		int serverNumber = Integer.parseInt(parts[1]);
+		
+		if((serverNumber == 0 || serverNumber == -1) && retry < 2) {
+			retry++;
+			System.out.println(retry+" Trying to reach server......");
 			try {
 				Thread.sleep(2000);
 			} catch(Exception e) {
 				e.printStackTrace();
 			}
 			returnedString = (SetMetadataServer("read", chunkName));
-			if(returnedString.equalsIgnoreCase("ServerUnavailable")) {
-				System.out.println("Server Unavailable");
-			} 
-			else {
-				serverNumber = Integer.parseInt(returnedString);
+			serverNumber = Integer.parseInt(returnedString.split(":")[1]);
+			if((serverNumber == 0 || serverNumber == -1) && retry < 2) {
+				readFromFile(filename, offset, bytesToRead);
 			}
-		}*/
+		}
 		
 		// IF the read extends in more than one file
 		if((seekPosition+(bytesToRead)) > 8192) {
@@ -109,11 +105,16 @@ public class Client {
 			SetUpReadNetworking(otherServerNumber, otherChunkName, 0, otherBytesToRead);
 		}
 		try {
-			Thread.sleep(2000);
+			Thread.sleep(15000);
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
-		SetUpReadNetworking(serverNumber, chunkName, seekPosition, bytesToRead);
+		if(retry < 2) {
+			SetUpReadNetworking(serverNumber, chunkName, seekPosition, bytesToRead);
+		} else {
+			System.out.println("Server Unavailable, tried reaching "+retry+ " times");
+		}
+		retry = 0;
 	}
 
 
@@ -134,7 +135,7 @@ public class Client {
 			client.close();out1.close();			
 		}
 		catch (IOException e) {
-			e.printStackTrace();
+			System.out.println("Server Unavailable");
 		}
 	}
 	
@@ -155,7 +156,7 @@ public class Client {
 			client.close();out1.close();			
 		}
 		catch (IOException e) {
-			e.printStackTrace();
+			System.out.println("Server Unavailable");
 		}
 	}
 
@@ -177,8 +178,7 @@ public class Client {
 			client.close();out1.close();			
 		}
 		catch (IOException e) {
-			System.out.println("Server Unaviable yet");
-			e.printStackTrace();
+			System.out.println("Server Unavailable");
 		}
 	}
 	
@@ -216,7 +216,7 @@ public class Client {
 			client.close();out.close();in.close();
 		}
 		catch (IOException e) {
-			e.printStackTrace();
+			System.out.println("MetaDataServer Unavailable");
 		} 
 		finally {
 			//client.close();

@@ -7,16 +7,18 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.HashMap;
 import utilities.UsefulMethods;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class MetadataHandler implements Runnable {
 	
+	private final ReentrantLock lock = new ReentrantLock();
 	UsefulMethods usefulmethods = UsefulMethods.getUsefulMethodsInstance();
 	MetadataStorage storage = MetadataStorage.getMetadataStorageInstance();
 	PrintWriter writer;
 	BufferedReader reader;
 	Socket sock;
-	boolean heartbeatReceived = false;
-	HashMap<Integer, Long> lastMsgSentTime = new HashMap<>(); 
+	public static boolean heartbeatReceived = false;
+	public static volatile HashMap<Integer, Long> lastMsgSentTime = new HashMap<>(); 
 	
 	public MetadataHandler(Socket client) {
 		sock = client;
@@ -36,6 +38,7 @@ public class MetadataHandler implements Runnable {
 				String action = parts[0];
 				
 				if(action.equalsIgnoreCase("create")) {
+					System.out.println("metadataHandler create operation");
 					String filename = parts[1];
 					int serverNumber = usefulmethods.randomServer();
 					if(storage.fileExists(filename)) {
@@ -50,6 +53,7 @@ public class MetadataHandler implements Runnable {
 					sendWelcomeMessage(sock, serverNumber);
 				}
 				else if(action.equalsIgnoreCase("append")) {
+					System.out.println("metadataHandler append operation");
 					String lastChunkInfo = storage.getLastChunkInfo(parts[1]);
 					try {
 						writer = new PrintWriter(sock.getOutputStream(), true);
@@ -60,20 +64,18 @@ public class MetadataHandler implements Runnable {
 					}
 				}
 				else if(action.equalsIgnoreCase("read")) {
-					System.out.println("metadataHandler read operation");
+					System.out.println("metadataHandler read operation" + heartbeatReceived);
 					String fileName = parts[1].split("-")[0];
-					System.out.println("metadataHandler filename:" +fileName);
 					String chunkName = parts[1];
-					System.out.println("metadataHandler chunkName:" +chunkName);
 					int serverNumber = storage.readHashMap(fileName, chunkName);
 					if(heartbeatReceived) {
-						System.out.println("failure detection in progree....");
+						System.out.println("failure detection in progrees....");
 						if(checkForAvailabilityofServer(serverNumber)) {
 							sendWelcomeMessage(sock, serverNumber);
 						} 
 						else {
-							String info = serverNumber+":"+"ServerUnavailable";
-							sendRequiredInfo(sock, info);
+							serverNumber = -1;
+							sendWelcomeMessage(sock, serverNumber);
 							System.out.println("Server not available");
 						}
 					} 
@@ -83,7 +85,7 @@ public class MetadataHandler implements Runnable {
 					}
 				}
 				else if(action.equalsIgnoreCase("heartbeat")) {
-					heartbeatReceived = true;
+					System.out.println("metadataHandler heartBeat operation"+ UsefulMethods.getUsefulMethodsInstance().getTime()+ " Server Number : "+ parts[1]);
 					String serverNumber = parts[1];					
 					String fileLength = parts[3];
 					int byteSize = Integer.parseInt(fileLength);
@@ -93,11 +95,12 @@ public class MetadataHandler implements Runnable {
 					String[] names = chunkName.split("-");
 					String fileName = names[0];
 					
-					updateLastMsgSentTime(Integer.parseInt(serverNumber));
-					
 					if(storage.fileExists(fileName)) {
 						storage.updateHashMap(Integer.parseInt(serverNumber), fileName, chunkName, byteSize, lastModified);
 					}
+
+					heartbeatReceived = true;
+					updateLastMsgSentTime(Integer.parseInt(serverNumber));
 				}
 			}
 		} catch (IOException e) {
@@ -106,17 +109,25 @@ public class MetadataHandler implements Runnable {
 	}
 	
 	private void updateLastMsgSentTime(int serverNumber) {
-		if(lastMsgSentTime.get(serverNumber) != null) {
+		lock.lock();
+		try {
 			lastMsgSentTime.put(serverNumber, System.currentTimeMillis());
-		} 
-		else {
-			lastMsgSentTime.put(serverNumber, System.currentTimeMillis());
+		} finally {
+			lock.unlock();
 		}
+		System.out.println("lastMsgSentTime: "+lastMsgSentTime);
 	}
 	
 	private boolean checkForAvailabilityofServer(int serverNumber) {
+		System.out.println("lastMsgSentTime : " + lastMsgSentTime);
 		Long presentTime = System.currentTimeMillis();
-		Long serverTime = lastMsgSentTime.get(serverNumber);
+		Long serverTime = 0L;
+		lock.lock();
+		try{
+			serverTime = lastMsgSentTime.get(serverNumber);
+		}finally {
+			lock.unlock();
+		}
 		Long difference = presentTime - serverTime;
 		if(difference > 15000) {
 			return false;
@@ -128,16 +139,6 @@ public class MetadataHandler implements Runnable {
         try {
         	writer = new PrintWriter(client.getOutputStream(), true);
             writer.println("serverNumber:"+serverNumber);
-            writer.flush();
-        } finally {
-            //writer.close();
-        }
-    }
-	
-	private void sendRequiredInfo(Socket client, String info) throws IOException {
-        try {
-        	writer = new PrintWriter(client.getOutputStream(), true);
-            writer.println("serverNumber:"+info);
             writer.flush();
         } finally {
             //writer.close();
