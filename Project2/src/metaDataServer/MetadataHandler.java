@@ -42,7 +42,7 @@ public class MetadataHandler implements Runnable {
 					String filename = parts[1];
 					int serverNumber = usefulmethods.randomServer();
 					if(storage.fileExists(filename)) {
-						//Send error message saying file exits
+						System.out.println("file exits appending the message at the end");
 					}
 					else {
 						String[] chunks = filename.split("\\.");
@@ -55,12 +55,23 @@ public class MetadataHandler implements Runnable {
 				else if(action.equalsIgnoreCase("append")) {
 					System.out.println("metadataHandler append operation");
 					String lastChunkInfo = storage.getLastChunkInfo(parts[1]);
-					try {
-						writer = new PrintWriter(sock.getOutputStream(), true);
-			            writer.println(lastChunkInfo);
-			            writer.flush();
-					} catch(Exception e) {
-						e.printStackTrace();
+					String chunkName = lastChunkInfo.split(":")[0];
+					int serverNumber = Integer.parseInt(lastChunkInfo.split(":")[1]);
+					if(heartbeatReceived && lastMsgSentTime.get(serverNumber) != null) {
+						System.out.println("failure detection in progrees....");
+						if(checkForAvailabilityofServer(serverNumber)) {
+							sendAppendWelcomeMessage(sock, lastChunkInfo);
+						} 
+						else {
+							serverNumber = -1;
+							String sendErrorlastChunkInfo = chunkName+":"+serverNumber;
+							sendAppendWelcomeMessage(sock, sendErrorlastChunkInfo);
+							System.out.println("Server not available");
+						}
+					} 
+					else {
+						System.out.println("No heartbeat msg yet so no failure detection");
+						sendAppendWelcomeMessage(sock, lastChunkInfo);
 					}
 				}
 				else if(action.equalsIgnoreCase("read")) {
@@ -68,7 +79,7 @@ public class MetadataHandler implements Runnable {
 					String fileName = parts[1].split("-")[0];
 					String chunkName = parts[1];
 					int serverNumber = storage.readHashMap(fileName, chunkName);
-					if(heartbeatReceived) {
+					if(heartbeatReceived && lastMsgSentTime.get(serverNumber) != null) {
 						System.out.println("failure detection in progrees....");
 						if(checkForAvailabilityofServer(serverNumber)) {
 							sendWelcomeMessage(sock, serverNumber);
@@ -144,6 +155,16 @@ public class MetadataHandler implements Runnable {
             //writer.close();
         }
     }
+	
+	private void sendAppendWelcomeMessage(Socket client, String lastChunkInfo) throws IOException {
+		try {
+			writer = new PrintWriter(client.getOutputStream(), true);
+            writer.println(lastChunkInfo);
+            writer.flush();
+		} finally {
+            //writer.close();
+        }
+	}
 	
 	public void closeEverything() {
 		try{

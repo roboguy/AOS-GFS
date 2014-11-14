@@ -11,7 +11,9 @@ import java.util.Properties;
 import utilities.UsefulMethods;
 
 public class Client {
-	static int retry = 0;
+	static int readRetry = 0;
+	static int appendRetry = 0;
+	static int createRetry = 0;
 	
 	public static void main(String[] args) throws IOException {
 		BufferedReader reader = new BufferedReader(new FileReader("resource/instruction.txt"));
@@ -19,6 +21,7 @@ public class Client {
 		String line = null;
 		try {
 			while ((line = reader.readLine()) != null) {
+				readRetry = 0; appendRetry = 0; createRetry = 0;
 				String parts[] = line.split("\\|");
 				if(parts[0].toUpperCase().equals(("r").toUpperCase())) {
 					client.readFromFile(parts[1], parts[2], Integer.parseInt(parts[3]));
@@ -46,7 +49,7 @@ public class Client {
 	}
 
 	private void appendToFile(String filename, String message) {
-		System.out.println("read request filename : "+filename);
+		System.out.println("append request filename : "+filename);
 		String lastChunkInfo = null;
 		filename = filename.split("\\.")[0];
 		try {
@@ -54,7 +57,31 @@ public class Client {
 			String[] lastInfos = lastChunkInfo.split(":");
 			String chunkName = lastInfos[0];
 			int ServerNumber = Integer.parseInt(lastInfos[1]);
-			SetUpAppendNetworking(chunkName, ServerNumber, message);
+			if((ServerNumber == 0 || ServerNumber == -1) && appendRetry < 2) {
+				appendRetry++;
+				try {
+					Thread.sleep(2000);
+				} catch(Exception e) {
+					e.printStackTrace();
+				}
+				lastChunkInfo = SetMetadataServer("append", filename);
+				lastInfos = lastChunkInfo.split(":");
+				chunkName = lastInfos[0];
+				ServerNumber = Integer.parseInt(lastInfos[1]);
+				if((ServerNumber == 0 || ServerNumber == -1) && appendRetry < 2) {
+					appendToFile(filename, message);
+				}
+			}
+			try {
+				Thread.sleep(2000);
+			} catch(Exception e) {
+				e.printStackTrace();
+			}
+			if(appendRetry < 2) {
+				SetUpAppendNetworking(chunkName, ServerNumber, message);
+			} else {
+				System.out.println("Server Unavailable, tried reaching "+appendRetry+ " times");
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -71,9 +98,9 @@ public class Client {
 		String[] parts = returnedString.split(":");
 		int serverNumber = Integer.parseInt(parts[1]);
 		
-		if((serverNumber == 0 || serverNumber == -1) && retry < 2) {
-			retry++;
-			System.out.println(retry+" Trying to reach server......");
+		if((serverNumber == 0 || serverNumber == -1) && readRetry < 2) {
+			readRetry++;
+			System.out.println(readRetry+" Trying to reach server......");
 			try {
 				Thread.sleep(2000);
 			} catch(Exception e) {
@@ -81,7 +108,7 @@ public class Client {
 			}
 			returnedString = (SetMetadataServer("read", chunkName));
 			serverNumber = Integer.parseInt(returnedString.split(":")[1]);
-			if((serverNumber == 0 || serverNumber == -1) && retry < 2) {
+			if((serverNumber == 0 || serverNumber == -1) && readRetry < 2) {
 				readFromFile(filename, offset, bytesToRead);
 			}
 		}
@@ -109,12 +136,11 @@ public class Client {
 		} catch(Exception e) {
 			e.printStackTrace();
 		}
-		if(retry < 2) {
+		if(readRetry < 2) {
 			SetUpReadNetworking(serverNumber, chunkName, seekPosition, bytesToRead);
 		} else {
-			System.out.println("Server Unavailable, tried reaching "+retry+ " times");
+			System.out.println("Server Unavailable, tried reaching "+readRetry+ " times");
 		}
-		retry = 0;
 	}
 
 
@@ -178,7 +204,16 @@ public class Client {
 			client.close();out1.close();			
 		}
 		catch (IOException e) {
-			System.out.println("Server Unavailable");
+			try{
+				Thread.sleep(2000);
+				if(createRetry < 2) {
+					System.out.println("Server was not up so trying "+createRetry+" again to create a file");
+					createRetry++;
+					SetUpNetworking(serverNumber, filename, message);
+				}
+			} catch(InterruptedException ie) {
+				ie.printStackTrace();
+			}
 		}
 	}
 	
